@@ -11,13 +11,19 @@ class ReminderViewController: UICollectionViewController {
     private typealias DataSource = UICollectionViewDiffableDataSource<Section, Row>
     private typealias Snapshot = NSDiffableDataSourceSnapshot<Section, Row>
 
-    var reminder: Reminder
+    var reminder: Reminder {
+        didSet {
+            onChange(reminder)
+        }
+    }
     var workingReminder: Reminder
+    var onChange: (Reminder)->Void
     private var dataSource: DataSource!
 
-    init(reminder: Reminder) {
+    init(reminder: Reminder, onChange: @escaping (Reminder)->Void) {
         self.reminder = reminder
         self.workingReminder = reminder
+        self.onChange = onChange
         var listConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         listConfiguration.showsSeparators = false
         listConfiguration.headerMode = .firstItemInSection
@@ -71,7 +77,13 @@ class ReminderViewController: UICollectionViewController {
         cell.tintColor = .todayPrimaryTint
     }
 
+    @objc func didCancelEdit() {
+        workingReminder = reminder
+        setEditing(false, animated: true)
+    }
+
     private func prepareForEditing() {
+        navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(didCancelEdit))
         updateSnapshotForEditing()
     }
 
@@ -79,15 +91,13 @@ class ReminderViewController: UICollectionViewController {
         var snapshot = Snapshot()
         snapshot.appendSections([.title, .date, .notes])
         snapshot.appendItems([.header(Section.title.name), .editText(reminder.title)], toSection: .title)
-        snapshot.appendItems([.header(Section.title.name)], toSection: .title)
-        snapshot.appendItems([.header(Section.date.name)], toSection: .date)
-        snapshot.appendItems([.header(Section.notes.name)], toSection: .notes)
         snapshot.appendItems([.header(Section.date.name), .editDate(reminder.dueDate)], toSection: .date)
         snapshot.appendItems([.header(Section.notes.name), .editText(reminder.notes)], toSection: .notes)
         dataSource.apply(snapshot)
     }
 
     private func prepareForViewing() {
+        navigationItem.leftBarButtonItem = nil
         if workingReminder != reminder {
             reminder = workingReminder
         }
@@ -98,6 +108,7 @@ class ReminderViewController: UICollectionViewController {
         var snapshot = Snapshot()
         snapshot.appendSections([.view])
         snapshot.appendItems([.header(""), .viewTitle, .viewDate, .viewTime, .viewNotes], toSection: .view)
+
         dataSource.apply(snapshot)
     }
 
@@ -109,4 +120,3 @@ class ReminderViewController: UICollectionViewController {
         return section
     }
 }
-

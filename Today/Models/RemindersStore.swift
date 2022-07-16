@@ -1,0 +1,56 @@
+//
+//  RemindersStore.swift
+//  Today
+//
+//  Created by Arad Radfar on 7/16/22.
+//
+
+import Foundation
+import EventKit
+
+class ReminderStore {
+    static let shared = ReminderStore()
+
+    private let ekStore = EKEventStore()
+
+    var isAvailable: Bool {
+        EKEventStore.authorizationStatus(for: .reminder) == .authorized
+    }
+
+    func requestAccess() async throws {
+        let status = EKEventStore.authorizationStatus(for: .reminder)
+
+        switch status {
+        case .notDetermined:
+            let accessGrannted = try await ekStore.requestAccess(to: .reminder)
+            guard accessGrannted else {
+                throw TodayError.accessDenied
+            }
+        case .restricted:
+            throw TodayError.accessRestricted
+        case .denied:
+            throw TodayError.accessDenied
+        case .authorized:
+            return
+        @unknown default:
+            throw TodayError.unknown
+        }
+    }
+
+    func readAll() async throws -> [Reminder] {
+        guard isAvailable else {
+            throw TodayError.accessDenied
+        }
+        
+        let predicate = ekStore.predicateForReminders(in: nil)
+        let ekReminders = try await ekStore.fetchReminders(matching: predicate)
+        let reminders: [Reminder] = try ekReminders.compactMap { ekReminder in
+            do {
+                return try Reminder(with: ekReminder)
+            } catch TodayError.reminnderHasNoDueDate {
+                return nil
+            }
+        }
+        return reminders
+    }
+}
